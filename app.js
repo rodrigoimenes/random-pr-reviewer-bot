@@ -4,35 +4,26 @@ require("dotenv").config();
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
-
 });
 
-app.command("/pr", async ({ command, ack, say, client, payload }) => {
-    try {
-      await ack();
+app.event('app_mention', async ({ command, ack, say, client, payload }) => {
+  const threadTs = payload.thread_ts ? payload.thread_ts : payload.ts;
+  const regexGroup = /(?<=\^)\w+/gi;
+  const groupId = payload.text.match(regexGroup);
 
-      console.log(command);
+  if (!groupId) {
+    say(`Não identifiquei um grupo na sua mensagem, pode tentar novamente marcando um grupo? :awesome:`);
+    return
+  }
 
-      const regexGroup = /(?<=\^)\w+/gi;
-      const groupId = payload.text.match(regexGroup);
+  const groupUsers = await client.usergroups.users.list({ usergroup: groupId[0] });
 
-      if (!groupId) {
-        say(`Não identifiquei um grupo na sua mensagem, pode tentar novamente marcando um grupo? :awesome:`);
-        return
-      }
+  const regexQuantity = /(?<= )\d+/;
+  const matchQtt = payload.text.match(regexQuantity);
+  const quantity = matchQtt ? matchQtt[0] || 1 : 1;
 
-      const groupUsers = await client.usergroups.users.list({ usergroup: groupId[0] });
-
-      const regexQuantity = /(?<= )\d+/;
-      const matchQtt = payload.text.match(regexQuantity);
-      const quantity = matchQtt ? matchQtt[0] || 1 : 1;
-
-      const usernames = groupUsers.users.sort(() => Math.random() - Math.random()).slice(0, quantity);
-      say(`Olá ${usernames.map(username => `<@${username}>`)}, pode(m) revisar esse PR? :sonic_waiting:`);
-    } catch (error) {
-        console.log("err")
-      console.error(error);
-    }
+  const usernames = groupUsers.users.sort(() => Math.random() - Math.random()).slice(0, quantity);
+  say({ text: `Olá ${usernames.map(username => `<@${username}>`)}, pode(m) revisar esse PR? :sonic_waiting:`, thread_ts: threadTs });
 });
 
 (async () => {
